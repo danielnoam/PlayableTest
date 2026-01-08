@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     
+    public static event Action OnGameStarted;
     public static event Action OnGameOver;
     public static event Action OnGamePaused;
     public static event Action OnGameResumed;
@@ -42,12 +43,21 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    private void OnEnable()
+    {
+        Luna.Unity.LifeCycle.OnPause += Pause;
+        Luna.Unity.LifeCycle.OnResume += Resume;
+    }
+
+    private void OnDisable()
+    {
+        Luna.Unity.LifeCycle.OnPause -= Pause;
+        Luna.Unity.LifeCycle.OnResume -= Resume;
+    }
+    
     private void Start()
     {
-        CurrentSpeed = startSpeed;
-        CurrentScore = 0f;
-        CurrentState = GameState.Playing;
-        Time.timeScale = 1f;
+        StartGame();
     }
 
     private void Update()
@@ -93,6 +103,16 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void StartGame()
+    {
+        CurrentSpeed = startSpeed;
+        CurrentScore = 0f;
+        CurrentState = GameState.Playing;
+        Time.timeScale = 1f;
+        OnGameStarted?.Invoke();
+        Luna.Unity.LifeCycle.GameStarted();
+    }
+    
     public void Pause()
     {
         CurrentState = GameState.Paused;
@@ -112,8 +132,9 @@ public class GameManager : MonoBehaviour
         if (CurrentState == GameState.Dead) return;
         
         CurrentState = GameState.Dead;
-        Time.timeScale = 0f;
+        Time.timeScale = 1f;
         OnGameOver?.Invoke();
+        Luna.Unity.LifeCycle.GameEnded();
     }
 
 

@@ -21,6 +21,9 @@ public class PlayerController : MonoBehaviour
 	private Transform playerGfx;
 
 	[SerializeField]
+	private ParticleSystem deathParticleEffect;
+
+	[SerializeField]
 	private InputHandler inputHandlerRight;
 
 	[SerializeField]
@@ -32,7 +35,7 @@ public class PlayerController : MonoBehaviour
 
 	private void Awake()
 	{
-		if (Instance != null && Instance != this)
+		if ((bool)Instance && Instance != this)
 		{
 			Object.Destroy(base.gameObject);
 		}
@@ -40,6 +43,21 @@ public class PlayerController : MonoBehaviour
 		{
 			Instance = this;
 		}
+	}
+
+	private void Start()
+	{
+		GameManager.OnGameStarted += OnGameStarted;
+	}
+
+	private void OnDisable()
+	{
+		GameManager.OnGameStarted -= OnGameStarted;
+	}
+
+	private void OnGameStarted()
+	{
+		playerGfx.gameObject.SetActive(true);
 	}
 
 	private void FixedUpdate()
@@ -72,6 +90,8 @@ public class PlayerController : MonoBehaviour
 	{
 		if (collision.gameObject.TryGetComponent<Obstacle>(out var _))
 		{
+			deathParticleEffect.Play();
+			playerGfx.gameObject.SetActive(false);
 			GameManager.Instance?.GameOver();
 		}
 	}

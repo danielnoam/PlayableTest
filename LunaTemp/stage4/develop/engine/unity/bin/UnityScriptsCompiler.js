@@ -1,4 +1,4 @@
-if ( TRACE ) { TRACE( JSON.parse( '["GameManager#init","GameManager#Awake","GameManager#Start","GameManager#Update","GameManager#UpdateScore","GameManager#UpdateSpeed","GameManager#TogglePause","GameManager#Pause","GameManager#Resume","GameManager#GameOver","GameManager#RestartGame","InputHandler#IsPressed#get","InputHandler#IsHovered#get","InputHandler#OnMouseEnter","InputHandler#OnMouseExit","InputHandler#OnMouseDown","InputHandler#OnMouseUp","InputHandler#OnPointerDown","InputHandler#OnPointerUp","InputHandler#OnPointerEnter","InputHandler#OnPointerExit","Obstacle#RigidBody#get","Obstacle#Initialize","Obstacle#FixedUpdate","Obstacle#HandleMovement","Obstacle#CheckDespawn","Obstacle#OnCollisionEnter","ObstacleManager#init","ObstacleManager#Awake","ObstacleManager#Update","ObstacleManager#HandleObstacleSpawning","ObstacleManager#SpawnObstacle","ObstacleManager#OnDrawGizmos","PlayerController#init","PlayerController#Awake","PlayerController#FixedUpdate","PlayerController#HandleMovement","PlayerController#OnCollisionEnter","UIManager#Update","UIManager#UpdateScoreUI"]' ) ); }
+if ( TRACE ) { TRACE( JSON.parse( '["GameManager#init","GameManager#Awake","GameManager#OnEnable","GameManager#OnDisable","GameManager#Start","GameManager#Update","GameManager#UpdateScore","GameManager#UpdateSpeed","GameManager#TogglePause","GameManager#StartGame","GameManager#Pause","GameManager#Resume","GameManager#GameOver","GameManager#RestartGame","InputHandler#IsPressed#get","InputHandler#IsHovered#get","InputHandler#init","InputHandler#Awake","InputHandler#Update","InputHandler#HandleManualInput","InputHandler#OnMouseEnter","InputHandler#OnMouseExit","InputHandler#OnMouseDown","InputHandler#OnMouseUp","InputHandler#OnPointerDown","InputHandler#OnPointerUp","InputHandler#OnPointerEnter","InputHandler#OnPointerExit","Obstacle#RigidBody#get","Obstacle#Initialize","Obstacle#FixedUpdate","Obstacle#HandleMovement","Obstacle#CheckDespawn","Obstacle#OnCollisionEnter","ObstacleManager#init","ObstacleManager#Awake","ObstacleManager#Update","ObstacleManager#HandleObstacleSpawning","ObstacleManager#SpawnObstacle","ObstacleManager#OnDrawGizmos","PlayerController#init","PlayerController#Awake","PlayerController#Start","PlayerController#OnDisable","PlayerController#OnGameStarted","PlayerController#FixedUpdate","PlayerController#HandleMovement","PlayerController#OnCollisionEnter","UIManager#Update","UIManager#UpdateScoreUI"]' ) ); }
 /**
  * @compiler Bridge.NET 17.9.42-luna
  */
@@ -13,6 +13,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 Instance: null
             },
             events: {
+                OnGameStarted: null,
                 OnGameOver: null,
                 OnGamePaused: null,
                 OnGameResumed: null
@@ -49,14 +50,29 @@ if ( TRACE ) { TRACE( "GameManager#Awake", this ); }
             },
             /*GameManager.Awake end.*/
 
+            /*GameManager.OnEnable start.*/
+            OnEnable: function () {
+if ( TRACE ) { TRACE( "GameManager#OnEnable", this ); }
+
+                Luna.Unity.LifeCycle.addOnPause(Bridge.fn.cacheBind(this, this.Pause));
+                Luna.Unity.LifeCycle.addOnResume(Bridge.fn.cacheBind(this, this.Resume));
+            },
+            /*GameManager.OnEnable end.*/
+
+            /*GameManager.OnDisable start.*/
+            OnDisable: function () {
+if ( TRACE ) { TRACE( "GameManager#OnDisable", this ); }
+
+                Luna.Unity.LifeCycle.removeOnPause(Bridge.fn.cacheBind(this, this.Pause));
+                Luna.Unity.LifeCycle.removeOnResume(Bridge.fn.cacheBind(this, this.Resume));
+            },
+            /*GameManager.OnDisable end.*/
+
             /*GameManager.Start start.*/
             Start: function () {
 if ( TRACE ) { TRACE( "GameManager#Start", this ); }
 
-                this.CurrentSpeed = this.startSpeed;
-                this.CurrentScore = 0.0;
-                this.CurrentState = GameState.Playing;
-                UnityEngine.Time.timeScale = 1.0;
+                this.StartGame();
             },
             /*GameManager.Start end.*/
 
@@ -106,6 +122,19 @@ if ( TRACE ) { TRACE( "GameManager#TogglePause", this ); }
             },
             /*GameManager.TogglePause end.*/
 
+            /*GameManager.StartGame start.*/
+            StartGame: function () {
+if ( TRACE ) { TRACE( "GameManager#StartGame", this ); }
+
+                this.CurrentSpeed = this.startSpeed;
+                this.CurrentScore = 0.0;
+                this.CurrentState = GameState.Playing;
+                UnityEngine.Time.timeScale = 1.0;
+                !Bridge.staticEquals(GameManager.OnGameStarted, null) ? GameManager.OnGameStarted() : null;
+                Luna.Unity.LifeCycle.GameStarted();
+            },
+            /*GameManager.StartGame end.*/
+
             /*GameManager.Pause start.*/
             Pause: function () {
 if ( TRACE ) { TRACE( "GameManager#Pause", this ); }
@@ -132,8 +161,9 @@ if ( TRACE ) { TRACE( "GameManager#GameOver", this ); }
 
                 if (this.CurrentState !== GameState.Dead) {
                     this.CurrentState = GameState.Dead;
-                    UnityEngine.Time.timeScale = 0.0;
+                    UnityEngine.Time.timeScale = 1.0;
                     !Bridge.staticEquals(GameManager.OnGameOver, null) ? GameManager.OnGameOver() : null;
+                    Luna.Unity.LifeCycle.GameEnded();
                 }
             },
             /*GameManager.GameOver end.*/
@@ -169,8 +199,13 @@ if ( TRACE ) { TRACE( "GameManager#RestartGame", this ); }
     Bridge.define("InputHandler", {
         inherits: [UnityEngine.MonoBehaviour,UnityEngine.EventSystems.IPointerDownHandler,UnityEngine.EventSystems.IEventSystemHandler,UnityEngine.EventSystems.IPointerUpHandler,UnityEngine.EventSystems.IPointerEnterHandler,UnityEngine.EventSystems.IPointerExitHandler],
         fields: {
+            detectionMode: 0,
+            debugText: null,
             isPressed: false,
-            isHovered: false
+            isHovered: false,
+            _mainCamera: null,
+            _inputCollider2D: null,
+            _inputCollider3D: null
         },
         props: {
             IsPressed: {
@@ -194,12 +229,63 @@ if ( TRACE ) { TRACE( "InputHandler#IsHovered#get", this ); }
             "OnPointerEnter", "UnityEngine$EventSystems$IPointerEnterHandler$OnPointerEnter",
             "OnPointerExit", "UnityEngine$EventSystems$IPointerExitHandler$OnPointerExit"
         ],
+        ctors: {
+            init: function () {
+if ( TRACE ) { TRACE( "InputHandler#init", this ); }
+
+                this.detectionMode = InputHandler.InputDetectionMode.UI;
+            }
+        },
         methods: {
+            /*InputHandler.Awake start.*/
+            Awake: function () {
+if ( TRACE ) { TRACE( "InputHandler#Awake", this ); }
+
+                if (this.detectionMode === InputHandler.InputDetectionMode.Manual) {
+                    this._mainCamera = UnityEngine.Camera.main;
+                    this._inputCollider2D = this.GetComponent(UnityEngine.Collider2D);
+                    this._inputCollider3D = this.GetComponent(UnityEngine.Collider);
+                }
+            },
+            /*InputHandler.Awake end.*/
+
+            /*InputHandler.Update start.*/
+            Update: function () {
+if ( TRACE ) { TRACE( "InputHandler#Update", this ); }
+
+                if (this.detectionMode === InputHandler.InputDetectionMode.Manual) {
+                    this.HandleManualInput();
+                }
+                if (UnityEngine.Object.op_Implicit(this.debugText)) {
+                    this.debugText.text = System.String.format("Hovered: {0}, Pressed: {1}", Bridge.box(this.isHovered, System.Boolean, System.Boolean.toString), Bridge.box(this.isPressed, System.Boolean, System.Boolean.toString));
+                }
+            },
+            /*InputHandler.Update end.*/
+
+            /*InputHandler.HandleManualInput start.*/
+            HandleManualInput: function () {
+if ( TRACE ) { TRACE( "InputHandler#HandleManualInput", this ); }
+
+                var inputPosition = UnityEngine.Input.mousePosition.$clone();
+                var worldPos = this._mainCamera.ScreenToWorldPoint(inputPosition);
+                if (UnityEngine.Object.op_Implicit(this._inputCollider2D)) {
+                    this.isHovered = this._inputCollider2D.OverlapPoint$1(worldPos);
+                } else if (UnityEngine.Object.op_Implicit(this._inputCollider3D)) {
+                    var ray = this._mainCamera.ScreenPointToRay(inputPosition);
+                    var _discard1 = { v : new UnityEngine.RaycastHit() };
+                    this.isHovered = this._inputCollider3D.Raycast(ray, _discard1, Number.POSITIVE_INFINITY);
+                }
+                this.isPressed = UnityEngine.Input.GetMouseButton(0) && this.isHovered;
+            },
+            /*InputHandler.HandleManualInput end.*/
+
             /*InputHandler.OnMouseEnter start.*/
             OnMouseEnter: function () {
 if ( TRACE ) { TRACE( "InputHandler#OnMouseEnter", this ); }
 
-                this.isHovered = true;
+                if (this.detectionMode === InputHandler.InputDetectionMode.Collider) {
+                    this.isHovered = true;
+                }
             },
             /*InputHandler.OnMouseEnter end.*/
 
@@ -207,7 +293,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnMouseEnter", this ); }
             OnMouseExit: function () {
 if ( TRACE ) { TRACE( "InputHandler#OnMouseExit", this ); }
 
-                this.isHovered = false;
+                if (this.detectionMode === InputHandler.InputDetectionMode.Collider) {
+                    this.isHovered = false;
+                }
             },
             /*InputHandler.OnMouseExit end.*/
 
@@ -215,7 +303,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnMouseExit", this ); }
             OnMouseDown: function () {
 if ( TRACE ) { TRACE( "InputHandler#OnMouseDown", this ); }
 
-                this.isPressed = true;
+                if (this.detectionMode === InputHandler.InputDetectionMode.Collider) {
+                    this.isPressed = true;
+                }
             },
             /*InputHandler.OnMouseDown end.*/
 
@@ -223,7 +313,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnMouseDown", this ); }
             OnMouseUp: function () {
 if ( TRACE ) { TRACE( "InputHandler#OnMouseUp", this ); }
 
-                this.isPressed = false;
+                if (this.detectionMode === InputHandler.InputDetectionMode.Collider) {
+                    this.isPressed = false;
+                }
             },
             /*InputHandler.OnMouseUp end.*/
 
@@ -231,7 +323,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnMouseUp", this ); }
             OnPointerDown: function (eventData) {
 if ( TRACE ) { TRACE( "InputHandler#OnPointerDown", this ); }
 
-                this.isPressed = true;
+                if (this.detectionMode === InputHandler.InputDetectionMode.UI) {
+                    this.isPressed = true;
+                }
             },
             /*InputHandler.OnPointerDown end.*/
 
@@ -239,7 +333,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnPointerDown", this ); }
             OnPointerUp: function (eventData) {
 if ( TRACE ) { TRACE( "InputHandler#OnPointerUp", this ); }
 
-                this.isPressed = false;
+                if (this.detectionMode === InputHandler.InputDetectionMode.UI) {
+                    this.isPressed = false;
+                }
             },
             /*InputHandler.OnPointerUp end.*/
 
@@ -247,7 +343,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnPointerUp", this ); }
             OnPointerEnter: function (eventData) {
 if ( TRACE ) { TRACE( "InputHandler#OnPointerEnter", this ); }
 
-                this.isHovered = true;
+                if (this.detectionMode === InputHandler.InputDetectionMode.UI) {
+                    this.isHovered = true;
+                }
             },
             /*InputHandler.OnPointerEnter end.*/
 
@@ -255,7 +353,9 @@ if ( TRACE ) { TRACE( "InputHandler#OnPointerEnter", this ); }
             OnPointerExit: function (eventData) {
 if ( TRACE ) { TRACE( "InputHandler#OnPointerExit", this ); }
 
-                this.isHovered = false;
+                if (this.detectionMode === InputHandler.InputDetectionMode.UI) {
+                    this.isHovered = false;
+                }
             },
             /*InputHandler.OnPointerExit end.*/
 
@@ -263,6 +363,19 @@ if ( TRACE ) { TRACE( "InputHandler#OnPointerExit", this ); }
         }
     });
     /*InputHandler end.*/
+
+    /*InputHandler+InputDetectionMode start.*/
+    Bridge.define("InputHandler.InputDetectionMode", {
+        $kind: 1006,
+        statics: {
+            fields: {
+                UI: 0,
+                Collider: 1,
+                Manual: 2
+            }
+        }
+    });
+    /*InputHandler+InputDetectionMode end.*/
 
     /*Obstacle start.*/
     Bridge.define("Obstacle", {
@@ -442,6 +555,7 @@ if ( TRACE ) { TRACE( "ObstacleManager#OnDrawGizmos", this ); }
             moveRightKey: 0,
             rigidBody: null,
             playerGfx: null,
+            deathParticleEffect: null,
             inputHandlerRight: null,
             inputHandlerLeft: null,
             _horizontalInput: 0
@@ -460,13 +574,37 @@ if ( TRACE ) { TRACE( "PlayerController#init", this ); }
             Awake: function () {
 if ( TRACE ) { TRACE( "PlayerController#Awake", this ); }
 
-                if (UnityEngine.MonoBehaviour.op_Inequality(PlayerController.Instance, null) && UnityEngine.MonoBehaviour.op_Inequality(PlayerController.Instance, this)) {
+                if (UnityEngine.Object.op_Implicit(PlayerController.Instance) && UnityEngine.MonoBehaviour.op_Inequality(PlayerController.Instance, this)) {
                     UnityEngine.Object.Destroy(Bridge.ensureBaseProperty(this, "gameObject").$UnityEngine$Component$gameObject);
                 } else {
                     PlayerController.Instance = this;
                 }
             },
             /*PlayerController.Awake end.*/
+
+            /*PlayerController.Start start.*/
+            Start: function () {
+if ( TRACE ) { TRACE( "PlayerController#Start", this ); }
+
+                GameManager.addOnGameStarted(Bridge.fn.cacheBind(this, this.OnGameStarted));
+            },
+            /*PlayerController.Start end.*/
+
+            /*PlayerController.OnDisable start.*/
+            OnDisable: function () {
+if ( TRACE ) { TRACE( "PlayerController#OnDisable", this ); }
+
+                GameManager.removeOnGameStarted(Bridge.fn.cacheBind(this, this.OnGameStarted));
+            },
+            /*PlayerController.OnDisable end.*/
+
+            /*PlayerController.OnGameStarted start.*/
+            OnGameStarted: function () {
+if ( TRACE ) { TRACE( "PlayerController#OnGameStarted", this ); }
+
+                this.playerGfx.gameObject.SetActive(true);
+            },
+            /*PlayerController.OnGameStarted end.*/
 
             /*PlayerController.FixedUpdate start.*/
             FixedUpdate: function () {
@@ -501,6 +639,8 @@ if ( TRACE ) { TRACE( "PlayerController#OnCollisionEnter", this ); }
                 var $t;
                 var _discard1 = { };
                 if (collision.gameObject.TryGetComponent$1(Obstacle, _discard1)) {
+                    this.deathParticleEffect.Play();
+                    this.playerGfx.gameObject.SetActive(false);
                     UnityEngine.MonoBehaviour.op_Inequality(($t = GameManager.Instance), null) ? $t.GameOver() : null;
                 }
             },
@@ -545,7 +685,7 @@ if ( TRACE ) { TRACE( "UIManager#UpdateScoreUI", this ); }
         $n = ["System","UnityEngine.EventSystems","UnityEngine","TMPro"];
 
     /*GameManager start.*/
-    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"GameOver","t":8,"sn":"GameOver","rt":$n[0].Void},{"a":2,"n":"Pause","t":8,"sn":"Pause","rt":$n[0].Void},{"a":2,"n":"RestartGame","t":8,"sn":"RestartGame","rt":$n[0].Void},{"a":2,"n":"Resume","t":8,"sn":"Resume","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"TogglePause","t":8,"sn":"TogglePause","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"UpdateScore","t":8,"sn":"UpdateScore","rt":$n[0].Void},{"a":1,"n":"UpdateSpeed","t":8,"sn":"UpdateSpeed","rt":$n[0].Void},{"a":2,"n":"CurrentScore","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_CurrentScore","t":8,"rt":$n[0].Single,"fg":"CurrentScore","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_CurrentScore","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"CurrentScore"},"fn":"CurrentScore"},{"a":2,"n":"CurrentSpeed","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_CurrentSpeed","t":8,"rt":$n[0].Single,"fg":"CurrentSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_CurrentSpeed","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"CurrentSpeed"},"fn":"CurrentSpeed"},{"a":2,"n":"CurrentState","t":16,"rt":GameState,"g":{"a":2,"n":"get_CurrentState","t":8,"rt":GameState,"fg":"CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},"s":{"a":1,"n":"set_CurrentState","t":8,"p":[GameState],"rt":$n[0].Void,"fs":"CurrentState"},"fn":"CurrentState"},{"a":2,"n":"Instance","is":true,"t":16,"rt":GameManager,"g":{"a":2,"n":"get_Instance","t":8,"rt":GameManager,"fg":"Instance","is":true},"s":{"a":1,"n":"set_Instance","t":8,"p":[GameManager],"rt":$n[0].Void,"fs":"Instance","is":true},"fn":"Instance"},{"a":1,"n":"__Property__Initializer__CurrentState","t":4,"rt":GameState,"sn":"__Property__Initializer__CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Max speed", 3, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"maxSpeed","t":4,"rt":$n[0].Single,"sn":"maxSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Speed increase rate", 2, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"speedIncreaseRate","t":4,"rt":$n[0].Single,"sn":"speedIncreaseRate","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.HeaderAttribute("Speed Settings"),new UnityEngine.LunaPlaygroundFieldAttribute("Start speed", 1, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"startSpeed","t":4,"rt":$n[0].Single,"sn":"startSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"OnGameOver","is":true,"t":2,"ad":{"a":2,"n":"add_OnGameOver","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGameOver","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGameOver","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGameOver","rt":$n[0].Void,"p":[Function]}},{"a":2,"n":"OnGamePaused","is":true,"t":2,"ad":{"a":2,"n":"add_OnGamePaused","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGamePaused","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGamePaused","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGamePaused","rt":$n[0].Void,"p":[Function]}},{"a":2,"n":"OnGameResumed","is":true,"t":2,"ad":{"a":2,"n":"add_OnGameResumed","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGameResumed","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGameResumed","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGameResumed","rt":$n[0].Void,"p":[Function]}},{"a":1,"backing":true,"n":"<CurrentScore>k__BackingField","t":4,"rt":$n[0].Single,"sn":"CurrentScore","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"backing":true,"n":"<CurrentSpeed>k__BackingField","t":4,"rt":$n[0].Single,"sn":"CurrentSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"backing":true,"n":"<CurrentState>k__BackingField","t":4,"rt":GameState,"sn":"CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},{"a":1,"backing":true,"n":"<Instance>k__BackingField","is":true,"t":4,"rt":GameManager,"sn":"Instance"}]}; }, $n);
+    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"GameOver","t":8,"sn":"GameOver","rt":$n[0].Void},{"a":1,"n":"OnDisable","t":8,"sn":"OnDisable","rt":$n[0].Void},{"a":1,"n":"OnEnable","t":8,"sn":"OnEnable","rt":$n[0].Void},{"a":2,"n":"Pause","t":8,"sn":"Pause","rt":$n[0].Void},{"a":2,"n":"RestartGame","t":8,"sn":"RestartGame","rt":$n[0].Void},{"a":2,"n":"Resume","t":8,"sn":"Resume","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":2,"n":"TogglePause","t":8,"sn":"TogglePause","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"UpdateScore","t":8,"sn":"UpdateScore","rt":$n[0].Void},{"a":1,"n":"UpdateSpeed","t":8,"sn":"UpdateSpeed","rt":$n[0].Void},{"a":2,"n":"CurrentScore","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_CurrentScore","t":8,"rt":$n[0].Single,"fg":"CurrentScore","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_CurrentScore","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"CurrentScore"},"fn":"CurrentScore"},{"a":2,"n":"CurrentSpeed","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_CurrentSpeed","t":8,"rt":$n[0].Single,"fg":"CurrentSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_CurrentSpeed","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"CurrentSpeed"},"fn":"CurrentSpeed"},{"a":2,"n":"CurrentState","t":16,"rt":GameState,"g":{"a":2,"n":"get_CurrentState","t":8,"rt":GameState,"fg":"CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},"s":{"a":1,"n":"set_CurrentState","t":8,"p":[GameState],"rt":$n[0].Void,"fs":"CurrentState"},"fn":"CurrentState"},{"a":2,"n":"Instance","is":true,"t":16,"rt":GameManager,"g":{"a":2,"n":"get_Instance","t":8,"rt":GameManager,"fg":"Instance","is":true},"s":{"a":1,"n":"set_Instance","t":8,"p":[GameManager],"rt":$n[0].Void,"fs":"Instance","is":true},"fn":"Instance"},{"a":1,"n":"__Property__Initializer__CurrentState","t":4,"rt":GameState,"sn":"__Property__Initializer__CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Max speed", 3, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"maxSpeed","t":4,"rt":$n[0].Single,"sn":"maxSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Speed increase rate", 2, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"speedIncreaseRate","t":4,"rt":$n[0].Single,"sn":"speedIncreaseRate","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.HeaderAttribute("Speed Settings"),new UnityEngine.LunaPlaygroundFieldAttribute("Start speed", 1, "Game Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"startSpeed","t":4,"rt":$n[0].Single,"sn":"startSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"OnGameOver","is":true,"t":2,"ad":{"a":2,"n":"add_OnGameOver","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGameOver","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGameOver","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGameOver","rt":$n[0].Void,"p":[Function]}},{"a":2,"n":"OnGamePaused","is":true,"t":2,"ad":{"a":2,"n":"add_OnGamePaused","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGamePaused","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGamePaused","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGamePaused","rt":$n[0].Void,"p":[Function]}},{"a":2,"n":"OnGameResumed","is":true,"t":2,"ad":{"a":2,"n":"add_OnGameResumed","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGameResumed","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGameResumed","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGameResumed","rt":$n[0].Void,"p":[Function]}},{"a":2,"n":"OnGameStarted","is":true,"t":2,"ad":{"a":2,"n":"add_OnGameStarted","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addOnGameStarted","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_OnGameStarted","is":true,"t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removeOnGameStarted","rt":$n[0].Void,"p":[Function]}},{"a":1,"backing":true,"n":"<CurrentScore>k__BackingField","t":4,"rt":$n[0].Single,"sn":"CurrentScore","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"backing":true,"n":"<CurrentSpeed>k__BackingField","t":4,"rt":$n[0].Single,"sn":"CurrentSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"backing":true,"n":"<CurrentState>k__BackingField","t":4,"rt":GameState,"sn":"CurrentState","box":function ($v) { return Bridge.box($v, GameState, System.Enum.toStringFn(GameState));}},{"a":1,"backing":true,"n":"<Instance>k__BackingField","is":true,"t":4,"rt":GameManager,"sn":"Instance"}]}; }, $n);
     /*GameManager end.*/
 
     /*GameState start.*/
@@ -553,8 +693,12 @@ if ( TRACE ) { TRACE( "UIManager#UpdateScoreUI", this ); }
     /*GameState end.*/
 
     /*InputHandler start.*/
-    $m("InputHandler", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnMouseDown","t":8,"sn":"OnMouseDown","rt":$n[0].Void},{"a":1,"n":"OnMouseEnter","t":8,"sn":"OnMouseEnter","rt":$n[0].Void},{"a":1,"n":"OnMouseExit","t":8,"sn":"OnMouseExit","rt":$n[0].Void},{"a":1,"n":"OnMouseUp","t":8,"sn":"OnMouseUp","rt":$n[0].Void},{"a":2,"n":"OnPointerDown","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerDown","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerEnter","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerEnter","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerExit","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerExit","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerUp","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerUp","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"IsHovered","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_IsHovered","t":8,"rt":$n[0].Boolean,"fg":"IsHovered","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"fn":"IsHovered"},{"a":2,"n":"IsPressed","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_IsPressed","t":8,"rt":$n[0].Boolean,"fg":"IsPressed","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"fn":"IsPressed"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"isHovered","t":4,"rt":$n[0].Boolean,"sn":"isHovered","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"at":[new UnityEngine.HeaderAttribute("Input"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"isPressed","t":4,"rt":$n[0].Boolean,"sn":"isPressed","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}}]}; }, $n);
+    $m("InputHandler", function () { return {"nested":[InputHandler.InputDetectionMode],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":1,"n":"HandleManualInput","t":8,"sn":"HandleManualInput","rt":$n[0].Void},{"a":1,"n":"OnMouseDown","t":8,"sn":"OnMouseDown","rt":$n[0].Void},{"a":1,"n":"OnMouseEnter","t":8,"sn":"OnMouseEnter","rt":$n[0].Void},{"a":1,"n":"OnMouseExit","t":8,"sn":"OnMouseExit","rt":$n[0].Void},{"a":1,"n":"OnMouseUp","t":8,"sn":"OnMouseUp","rt":$n[0].Void},{"a":2,"n":"OnPointerDown","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerDown","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerEnter","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerEnter","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerExit","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerExit","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":2,"n":"OnPointerUp","t":8,"pi":[{"n":"eventData","pt":$n[1].PointerEventData,"ps":0}],"sn":"OnPointerUp","rt":$n[0].Void,"p":[$n[1].PointerEventData]},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"IsHovered","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_IsHovered","t":8,"rt":$n[0].Boolean,"fg":"IsHovered","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"fn":"IsHovered"},{"a":2,"n":"IsPressed","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_IsPressed","t":8,"rt":$n[0].Boolean,"fg":"IsPressed","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"fn":"IsPressed"},{"a":1,"n":"_inputCollider2D","t":4,"rt":$n[2].Collider2D,"sn":"_inputCollider2D"},{"a":1,"n":"_inputCollider3D","t":4,"rt":$n[2].Collider,"sn":"_inputCollider3D"},{"a":1,"n":"_mainCamera","t":4,"rt":$n[2].Camera,"sn":"_mainCamera"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"debugText","t":4,"rt":$n[3].TextMeshProUGUI,"sn":"debugText"},{"at":[new UnityEngine.HeaderAttribute("Detection Mode"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"detectionMode","t":4,"rt":InputHandler.InputDetectionMode,"sn":"detectionMode","box":function ($v) { return Bridge.box($v, InputHandler.InputDetectionMode, System.Enum.toStringFn(InputHandler.InputDetectionMode));}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"isHovered","t":4,"rt":$n[0].Boolean,"sn":"isHovered","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"at":[new UnityEngine.HeaderAttribute("Input State"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"isPressed","t":4,"rt":$n[0].Boolean,"sn":"isPressed","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}}]}; }, $n);
     /*InputHandler end.*/
+
+    /*InputHandler+InputDetectionMode start.*/
+    $m("InputHandler.InputDetectionMode", function () { return {"td":InputHandler,"att":258,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"Collider","is":true,"t":4,"rt":InputHandler.InputDetectionMode,"sn":"Collider","box":function ($v) { return Bridge.box($v, InputHandler.InputDetectionMode, System.Enum.toStringFn(InputHandler.InputDetectionMode));}},{"a":2,"n":"Manual","is":true,"t":4,"rt":InputHandler.InputDetectionMode,"sn":"Manual","box":function ($v) { return Bridge.box($v, InputHandler.InputDetectionMode, System.Enum.toStringFn(InputHandler.InputDetectionMode));}},{"a":2,"n":"UI","is":true,"t":4,"rt":InputHandler.InputDetectionMode,"sn":"UI","box":function ($v) { return Bridge.box($v, InputHandler.InputDetectionMode, System.Enum.toStringFn(InputHandler.InputDetectionMode));}}]}; }, $n);
+    /*InputHandler+InputDetectionMode end.*/
 
     /*Obstacle start.*/
     $m("Obstacle", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"CheckDespawn","t":8,"sn":"CheckDespawn","rt":$n[0].Void},{"a":1,"n":"FixedUpdate","t":8,"sn":"FixedUpdate","rt":$n[0].Void},{"a":1,"n":"HandleMovement","t":8,"sn":"HandleMovement","rt":$n[0].Void},{"a":2,"n":"Initialize","t":8,"pi":[{"n":"moveSpeed","pt":$n[0].Single,"ps":0},{"n":"despawnY","pt":$n[0].Single,"ps":1}],"sn":"Initialize","rt":$n[0].Void,"p":[$n[0].Single,$n[0].Single]},{"a":1,"n":"OnCollisionEnter","t":8,"pi":[{"n":"collision","pt":$n[2].Collision,"ps":0}],"sn":"OnCollisionEnter","rt":$n[0].Void,"p":[$n[2].Collision]},{"a":2,"n":"RigidBody","t":16,"rt":$n[2].Rigidbody,"g":{"a":2,"n":"get_RigidBody","t":8,"rt":$n[2].Rigidbody,"fg":"RigidBody"},"fn":"RigidBody"},{"a":1,"n":"_despawnY","t":4,"rt":$n[0].Single,"sn":"_despawnY","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_moveSpeed","t":4,"rt":$n[0].Single,"sn":"_moveSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"rigidBody","t":4,"rt":$n[2].Rigidbody,"sn":"rigidBody"}]}; }, $n);
@@ -565,7 +709,7 @@ if ( TRACE ) { TRACE( "UIManager#UpdateScoreUI", this ); }
     /*ObstacleManager end.*/
 
     /*PlayerController start.*/
-    $m("PlayerController", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":1,"n":"FixedUpdate","t":8,"sn":"FixedUpdate","rt":$n[0].Void},{"a":1,"n":"HandleMovement","t":8,"sn":"HandleMovement","rt":$n[0].Void},{"a":1,"n":"OnCollisionEnter","t":8,"pi":[{"n":"collision","pt":$n[2].Collision,"ps":0}],"sn":"OnCollisionEnter","rt":$n[0].Void,"p":[$n[2].Collision]},{"a":2,"n":"Instance","is":true,"t":16,"rt":PlayerController,"g":{"a":2,"n":"get_Instance","t":8,"rt":PlayerController,"fg":"Instance","is":true},"s":{"a":1,"n":"set_Instance","t":8,"p":[PlayerController],"rt":$n[0].Void,"fs":"Instance","is":true},"fn":"Instance"},{"a":1,"n":"_horizontalInput","t":4,"rt":$n[0].Single,"sn":"_horizontalInput","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"inputHandlerLeft","t":4,"rt":InputHandler,"sn":"inputHandlerLeft"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"inputHandlerRight","t":4,"rt":InputHandler,"sn":"inputHandlerRight"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveLeftKey","t":4,"rt":$n[2].KeyCode,"sn":"moveLeftKey","box":function ($v) { return Bridge.box($v, UnityEngine.KeyCode, System.Enum.toStringFn(UnityEngine.KeyCode));}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveRightKey","t":4,"rt":$n[2].KeyCode,"sn":"moveRightKey","box":function ($v) { return Bridge.box($v, UnityEngine.KeyCode, System.Enum.toStringFn(UnityEngine.KeyCode));}},{"at":[new UnityEngine.HeaderAttribute("Movement Settings"),new UnityEngine.LunaPlaygroundFieldAttribute("Speed of the player", 1, "Player Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveSpeed","t":4,"rt":$n[0].Single,"sn":"moveSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"playerGfx","t":4,"rt":$n[2].Transform,"sn":"playerGfx"},{"at":[new UnityEngine.HeaderAttribute("References"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"rigidBody","t":4,"rt":$n[2].Rigidbody,"sn":"rigidBody"},{"a":1,"backing":true,"n":"<Instance>k__BackingField","is":true,"t":4,"rt":PlayerController,"sn":"Instance"}]}; }, $n);
+    $m("PlayerController", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":1,"n":"FixedUpdate","t":8,"sn":"FixedUpdate","rt":$n[0].Void},{"a":1,"n":"HandleMovement","t":8,"sn":"HandleMovement","rt":$n[0].Void},{"a":1,"n":"OnCollisionEnter","t":8,"pi":[{"n":"collision","pt":$n[2].Collision,"ps":0}],"sn":"OnCollisionEnter","rt":$n[0].Void,"p":[$n[2].Collision]},{"a":1,"n":"OnDisable","t":8,"sn":"OnDisable","rt":$n[0].Void},{"a":1,"n":"OnGameStarted","t":8,"sn":"OnGameStarted","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"Instance","is":true,"t":16,"rt":PlayerController,"g":{"a":2,"n":"get_Instance","t":8,"rt":PlayerController,"fg":"Instance","is":true},"s":{"a":1,"n":"set_Instance","t":8,"p":[PlayerController],"rt":$n[0].Void,"fs":"Instance","is":true},"fn":"Instance"},{"a":1,"n":"_horizontalInput","t":4,"rt":$n[0].Single,"sn":"_horizontalInput","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"deathParticleEffect","t":4,"rt":$n[2].ParticleSystem,"sn":"deathParticleEffect"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"inputHandlerLeft","t":4,"rt":InputHandler,"sn":"inputHandlerLeft"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"inputHandlerRight","t":4,"rt":InputHandler,"sn":"inputHandlerRight"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveLeftKey","t":4,"rt":$n[2].KeyCode,"sn":"moveLeftKey","box":function ($v) { return Bridge.box($v, UnityEngine.KeyCode, System.Enum.toStringFn(UnityEngine.KeyCode));}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveRightKey","t":4,"rt":$n[2].KeyCode,"sn":"moveRightKey","box":function ($v) { return Bridge.box($v, UnityEngine.KeyCode, System.Enum.toStringFn(UnityEngine.KeyCode));}},{"at":[new UnityEngine.HeaderAttribute("Movement Settings"),new UnityEngine.LunaPlaygroundFieldAttribute("Speed of the player", 1, "Player Controls", false, null),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"moveSpeed","t":4,"rt":$n[0].Single,"sn":"moveSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"playerGfx","t":4,"rt":$n[2].Transform,"sn":"playerGfx"},{"at":[new UnityEngine.HeaderAttribute("References"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"rigidBody","t":4,"rt":$n[2].Rigidbody,"sn":"rigidBody"},{"a":1,"backing":true,"n":"<Instance>k__BackingField","is":true,"t":4,"rt":PlayerController,"sn":"Instance"}]}; }, $n);
     /*PlayerController end.*/
 
     /*UIManager start.*/
