@@ -2599,9 +2599,9 @@ Deserializers.unityVersion = "6000.0.64f1";
 
 Deserializers.productName = "Playworks";
 
-Deserializers.lunaInitializationTime = "01/08/2026 07:30:04";
+Deserializers.lunaInitializationTime = "01/07/2026 19:02:05";
 
-Deserializers.lunaDaysRunning = "0.1";
+Deserializers.lunaDaysRunning = "4.8";
 
 Deserializers.lunaVersion = "7.0.0";
 
@@ -2631,11 +2631,11 @@ Deserializers.isAntiAliasingEnabled = "True";
 
 Deserializers.isRuntimeAnalysisEnabledForCode = "True";
 
-Deserializers.runtimeAnalysisExcludedClassesCount = "1676";
+Deserializers.runtimeAnalysisExcludedClassesCount = "1656";
 
-Deserializers.runtimeAnalysisExcludedMethodsCount = "3802";
+Deserializers.runtimeAnalysisExcludedMethodsCount = "3897";
 
-Deserializers.runtimeAnalysisExcludedModules = "particle-system, reflection, mecanim-wasm";
+Deserializers.runtimeAnalysisExcludedModules = "reflection, mecanim-wasm";
 
 Deserializers.isRuntimeAnalysisEnabledForShaders = "True";
 
@@ -2657,7 +2657,7 @@ Deserializers.graphicsConstraint = 24;
 
 Deserializers.linearColorSpace = true;
 
-Deserializers.buildID = "05f8d22a-3698-4aa9-94b2-9a5819ba93ea";
+Deserializers.buildID = "d2d3faa6-d410-4d51-b9e5-73c28971e924";
 
 Deserializers.runtimeInitializeOnLoadInfos = [[["UnityEngine","Rendering","DebugUpdater","RuntimeInit"],["UnityEngine","U2D","Animation","GpuDeformationSystem","CreateFallbackBuffer"],["SingularityGroup","HotReload","PlayerEntrypoint","InitOnAppLoad"],["SingularityGroup","HotReload","CodePatcher","OnSceneLoad"],["SingularityGroup","HotReload","CodePatcher","WarnOnSceneLoad"],["UnityEngine","Experimental","Rendering","ScriptableRuntimeReflectionSystemSettings","ScriptingDirtyReflectionSystemInstance"]],[["Unity","VisualScripting","RuntimeVSUsageUtility","RuntimeInitializeOnLoadBeforeSceneLoad"],["UnityEngine","InputSystem","InputSystem","RunInitialUpdate"],["Unity","AI","Navigation","NavMeshModifierVolume","ClearNavMeshModifiers"],["Unity","AI","Navigation","NavMeshLink","ClearTrackedList"],["Unity","AI","Navigation","NavMeshSurface","ClearNavMeshSurfaces"],["Unity","AI","Navigation","NavMeshModifier","ClearNavMeshModifiers"],["SingularityGroup","HotReload","CodePatcher","InitializeUnityEvents"],["UnityEngine","AI","NavMesh","ClearPreUpdateListeners"]],[["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"],["$BurstDirectCallInitializer","Initialize"]],[["UnityEngine","Experimental","Rendering","XRSystem","XRSystemInit"]],[["UnityEngine","InputSystem","Plugins","InputForUI","InputSystemProvider","Bootstrap"],["UnityEngine","InputSystem","UI","InputSystemUIInputModule","ResetDefaultActions"],["UnityEngine","InputSystem","InputSystem","RunInitializeInPlayer"]]];
 
